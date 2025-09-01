@@ -7,12 +7,14 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
+    /* Empêche tout scroll dans l’iframe */
+    html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: contain; }
+
     body {
-      margin: 0;
       background: #f9fafb;
       font-family: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
-      display: flex; 
-      justify-content: center; 
+      display: flex;
+      justify-content: center;
       align-items: flex-start;
       padding: 40px 16px;
       color: #111827;
@@ -22,20 +24,26 @@
       border-radius: 16px;
       box-shadow: 0 6px 18px rgba(0,0,0,.05);
       padding: 24px 20px;
-      max-width: 940px; 
+      max-width: 940px;
       width: 100%;
+      overflow: hidden; /* sécurité anti-débordement */
     }
     h1 {
-      margin: 0 0 20px; 
+      margin: 0 0 20px;
       text-align: center;
-      font-size: 24px; 
-      font-weight: 600; 
+      font-size: 24px;
+      font-weight: 600;
       color: #111827; /* Noir sobre */
       letter-spacing: -0.3px;
     }
-    canvas { 
-      width: 100% !important; 
-      height: auto !important; 
+    /* Hauteur fixe du canvas = pas de scroll vertical */
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 420px !important;
+    }
+    @media (max-width: 520px){
+      canvas { height: 360px !important; }
     }
   </style>
 </head>
@@ -110,6 +118,7 @@
           },
           options: {
             responsive: true,
+            maintainAspectRatio: false, // respecte la hauteur CSS fixée (anti-scroll)
             animation: false,
             interaction: { mode: 'nearest', intersect: false },
             plugins: {
@@ -151,5 +160,3 @@
   </script>
 </body>
 </html>
-
-
