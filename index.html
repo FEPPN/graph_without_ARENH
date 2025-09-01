@@ -7,44 +7,31 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    *{box-sizing:border-box}
-    /* Occupe la hauteur de l'iframe, sans scroll */
-    html, body { height:100vh; margin:0; overflow:hidden; overscroll-behavior:contain; }
-
-    body{
-      background:#f9fafb;
-      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      display:flex; justify-content:center; align-items:stretch;
+    body {
+      margin: 0;
+      background: #f9fafb;
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
+      display: flex; justify-content: center; align-items: flex-start;
+      padding: 40px 16px;
     }
-    .chart-wrapper{
-      background:#fff;
-      border-radius:16px;
-      box-shadow:0 6px 18px rgba(0,0,0,.05);
-      padding:20px 18px;
-      max-width:940px; width:100%;
-      height:100vh;      /* plein cadre */
-      overflow:hidden;
-      display:flex; flex-direction:column;
+    .chart-wrapper {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+      padding: 24px 20px;
+      max-width: 940px; 
+      width: 100%;
     }
-    h1{
-      margin:0 0 12px;
-      text-align:center;
-      font-size:24px; font-weight:600; color:#111827; letter-spacing:-.3px;
-      flex:0 0 auto;
+    h1 {
+      margin: 0 0 20px; text-align: center;
+      font-size: 22px; font-weight: 600; color: #0b0f19;
     }
-    /* Le JS fixe la hauteur finale, mais on met un minimum confort */
-    #myChart{
-      width:100% !important;
-      height:520px !important;   /* +++ plus haut par défaut */
-      flex:1 1 auto;
-    }
-    @media (max-width:520px){
-      #myChart{ height:420px !important; } /* mobile confort */
-    }
+    /* Comme le graph qui marche : width 100% + height auto */
+    canvas { width: 100% !important; height: auto !important; display:block; }
   </style>
 </head>
 <body>
-  <div class="chart-wrapper" id="wrap">
+  <div class="chart-wrapper">
     <h1>Prix électricité — Sans ARENH</h1>
     <canvas id="myChart" aria-label="Courbe Sans ARENH" role="img"></canvas>
   </div>
@@ -53,67 +40,48 @@
     const jsonUrl = "https://raw.githubusercontent.com/FEPPN/Graph/main/data.json";
 
     const pick = (obj, keys) => { for (const k of keys) if (obj?.[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k]; };
-    const toFr  = (iso) => { const [y,m,d] = String(iso ?? "").split("-"); return (y&&m&&d)?`${d}/${m}/${y}`:String(iso??""); };
+    const toFr  = (iso) => {
+      if (typeof iso !== "string") return String(iso ?? "");
+      const [y,m,d] = iso.split("-");
+      if (y && m && d) return `${d}/${m}/${y}`;
+      try { return new Date(iso).toLocaleDateString('fr-FR'); } catch { return iso; }
+    };
 
-    const SERIES = "without"; // "without" => Sans ARENH, "with" => Avec ARENH
-    let chart;
-
-    // Calcule une grande hauteur dispo pour le canvas (sans scroll)
-    function sizeCanvas(){
-      const wrap   = document.getElementById('wrap');
-      const title  = wrap.querySelector('h1');
-      const canvas = document.getElementById('myChart');
-      const cs   = getComputedStyle(wrap);
-      const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-      const gap  = 8;
-      // >>> grand minimum desktop 520px (mobile géré en CSS)
-      const available = Math.max(520, wrap.clientHeight - title.offsetHeight - padV - gap);
-      canvas.style.height = available + 'px';
-      if (chart) chart.resize();
-    }
-
-    fetch(jsonUrl + "?v=" + Date.now(), { cache: "no-store" })
+    fetch(jsonUrl, { cache: "no-store" })
       .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(rows => {
         const labels = [], values = [];
         rows.forEach(r => {
-          const dateIso = pick(r, ["Date","date","dateISO"]);
-          const vWithout = Number(pick(r, ["withoutARENH","without_arenh","woARENH"]));
-          const vWith    = Number(pick(r, ["withARENH","with_arenh","wARENH"]));
-          const y = SERIES === "without" ? vWithout : vWith;
-          if (!dateIso || Number.isNaN(y)) return;
-          labels.push(toFr(dateIso));
-          values.push(y);
+          const dateIso  = pick(r, ["Date","date","dateISO"]);
+          const wo       = Number(pick(r, ["withoutARENH","without_arenh","woARENH"]));
+          if (!dateIso || Number.isNaN(wo)) return;
+          labels.push(toFr(String(dateIso)));
+          values.push(wo);
         });
 
-        // Axe Y serré pour éviter l'effet "écrasé"
+        // Serrage de l'axe Y pour ne pas aplatir la courbe
         const yMin = Math.min(...values);
         const yMax = Math.max(...values);
-        const pad  = Math.max((yMax - yMin) * 0.06, 0.0005); // 6% de marge (très serré)
+        const pad  = Math.max((yMax - yMin) * 0.06, 0.0005); // ~6% de marge mini
 
         const ctx = document.getElementById("myChart").getContext("2d");
-        const colorLine = SERIES === "without" ? "#0fc4b2" : "#5a52ff";
-
-        chart = new Chart(ctx, {
+        new Chart(ctx, {
           type: "line",
           data: {
             labels,
             datasets: [{
-              label: SERIES === "without" ? "Sans ARENH" : "Avec ARENH",
+              label: "Sans ARENH",
               data: values,
-              borderColor: colorLine,
-              borderWidth: 2,
+              borderColor: "#0fc4b2",   // papernest turquoise
+              borderWidth: 1.8,
               pointRadius: 0,
-              fill: false,
               tension: 0.28,
-              borderJoinStyle: 'round',
-              borderCapStyle: 'round'
+              fill: false               // pas de fond
             }]
           },
           options: {
+            // maintainAspectRatio reste à true (par défaut) -> même logique que le graph qui marche
             responsive: true,
-            maintainAspectRatio: false,   // suit la hauteur calculée
-            animation: false,
             interaction: { mode: 'nearest', intersect: false },
             plugins: {
               legend: { display: false },
@@ -121,8 +89,7 @@
                 backgroundColor: "#fff",
                 borderColor: "#e5e7eb", borderWidth: 1,
                 titleColor: "#111827", bodyColor: "#4b5563",
-                titleFont: { weight:'700', size: 13 },
-                bodyFont:  { weight:'600', size: 13 },
+                titleFont: { weight:'700' }, bodyFont: { weight:'500' },
                 padding: 10, cornerRadius: 10,
                 callbacks: { label: (ctx) => `${ctx.parsed.y.toFixed(4)} € / kWh` }
               }
@@ -134,23 +101,17 @@
                 beginAtZero: false,
                 ticks: {
                   color: "#6b7280",
-                  font: { size: 13 },
                   callback: v => `${Number(v).toFixed(3)} €`
                 },
-                grid: { color: "rgba(0,0,0,0.07)" }
+                grid: { color: "rgba(0,0,0,0.05)" }
               },
               x: {
-                ticks: { color: "#6b7280", font: { size: 13 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+                ticks: { color: "#6b7280", maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
                 grid: { display: false }
               }
             }
           }
         });
-
-        // hauteur finale
-        sizeCanvas();
-        addEventListener('resize', sizeCanvas);
-        new ResizeObserver(sizeCanvas).observe(document.getElementById('wrap'));
       })
       .catch(err => {
         console.error("Erreur chargement JSON:", err);
