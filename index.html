@@ -23,7 +23,7 @@
       box-shadow:0 6px 18px rgba(0,0,0,.05);
       padding:20px 18px;
       max-width:940px; width:100%;
-      height:100vh;           /* clé : occupe toute la hauteur */
+      height:100vh;           /* occupe toute la hauteur */
       overflow:hidden;        /* sécurité anti-débordement */
     }
 
@@ -33,7 +33,7 @@
       font-size:24px; font-weight:600; color:#111827; letter-spacing:-.3px;
     }
 
-    /* Le canvas sera “piloté” en JS pour prendre la hauteur dispo */
+    /* Le canvas est “piloté” en JS pour prendre la hauteur dispo */
     canvas{ display:block; width:100% !important; height:300px !important; } /* valeur de secours */
   </style>
 </head>
@@ -46,7 +46,7 @@
   <script>
     const jsonUrl = "https://raw.githubusercontent.com/FEPPN/Graph/main/data.json";
 
-    const pick = (obj, keys) => { for (const k of keys) if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k]; };
+    const pick = (obj, keys) => { for (const k of keys) if (obj?.[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k]; };
     const toFr = (iso) => {
       if (typeof iso !== "string") return String(iso ?? "");
       const [y,m,d] = iso.split("-");
@@ -64,8 +64,7 @@
       const canvas = document.getElementById('myChart');
       const cs = getComputedStyle(wrap);
       const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-      // petit espace sous le titre
-      const gap = 6;
+      const gap = 6; // espace sous le titre
       const available = Math.max(240, wrap.clientHeight - title.offsetHeight - padV - gap);
       canvas.style.height = available + 'px';
       if (chart) chart.resize();
@@ -75,6 +74,7 @@
       .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(rows => {
         const labels = [], values = [];
+
         rows.forEach(r => {
           const dateIso = pick(r, ["Date","date","dateISO"]);
           const vWithout = Number(pick(r, ["withoutARENH","without_arenh","woARENH"]));
@@ -85,17 +85,13 @@
           values.push(y);
         });
 
-        const ctx = document.getElementById("myChart").getContext("2d");
+        // === Calage propre de l'axe Y pour éviter l'écrasement ===
+        const yMin = Math.min(...values);
+        const yMax = Math.max(...values);
+        const pad  = Math.max((yMax - yMin) * 0.12, 0.0008); // ~12% de marge min
 
+        const ctx = document.getElementById("myChart").getContext("2d");
         const colorLine = SERIES === "without" ? "#0fc4b2" : "#5a52ff";
-        const g = ctx.createLinearGradient(0,0,0,280);
-        if (SERIES === "without") {
-          g.addColorStop(0, "rgba(15, 196, 178, 0.30)");
-          g.addColorStop(1, "rgba(15, 196, 178, 0)");
-        } else {
-          g.addColorStop(0, "rgba(90, 82, 255, 0.30)");
-          g.addColorStop(1, "rgba(90, 82, 255, 0)");
-        }
 
         chart = new Chart(ctx, {
           type: "line",
@@ -105,10 +101,9 @@
               label: SERIES === "without" ? "Sans ARENH" : "Avec ARENH",
               data: values,
               borderColor: colorLine,
-              backgroundColor: g,
               pointRadius: 0,
-              borderWidth: 1.6,
-              fill: false,
+              borderWidth: 1.8,
+              fill: false,           // pas de fond sous la courbe
               tension: 0.28
             }]
           },
@@ -132,8 +127,14 @@
             },
             scales: {
               y: {
-                ticks: { color: "#6b7280", callback: v => `${Number(v).toFixed(3)} €` },
-                grid: { color: "rgba(0,0,0,0.05)" }
+                min: yMin - pad,
+                max: yMax + pad,
+                beginAtZero: false,
+                ticks: {
+                  color: "#6b7280",
+                  callback: v => `${Number(v).toFixed(3)} €`
+                },
+                grid: { color: "rgba(0,0,0,0.07)" }
               },
               x: {
                 ticks: { color: "#6b7280", maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
@@ -146,8 +147,6 @@
         // Ajuste la hauteur maintenant et à chaque resize
         sizeCanvas();
         addEventListener('resize', sizeCanvas);
-
-        // Pour les thèmes WordPress/iframes qui modifient la taille après insertion
         new ResizeObserver(sizeCanvas).observe(document.getElementById('wrap'));
       })
       .catch(err => {
@@ -160,4 +159,3 @@
   </script>
 </body>
 </html>
-
