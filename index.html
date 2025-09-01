@@ -26,7 +26,6 @@
       margin: 0 0 20px; text-align: center;
       font-size: 22px; font-weight: 600; color: #0b0f19;
     }
-    /* Comme le graph qui marche : width 100% + height auto */
     canvas { width: 100% !important; height: auto !important; display:block; }
   </style>
 </head>
@@ -40,31 +39,43 @@
     const jsonUrl = "https://raw.githubusercontent.com/FEPPN/Graph/main/data.json";
 
     const pick = (obj, keys) => { for (const k of keys) if (obj?.[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k]; };
-    const toFr  = (iso) => {
-      if (typeof iso !== "string") return String(iso ?? "");
-      const [y,m,d] = iso.split("-");
-      if (y && m && d) return `${d}/${m}/${y}`;
-      try { return new Date(iso).toLocaleDateString('fr-FR'); } catch { return iso; }
+    const fmtDate = (iso) => {
+      try {
+        const d = new Date(iso);
+        // jj/MM/aaaa pour l’axe (clair et compact)
+        return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+      } catch { return String(iso ?? ""); }
     };
 
     fetch(jsonUrl, { cache: "no-store" })
       .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(rows => {
-        const labels = [], values = [];
+        // on garde les ISO à part pour le callback des ticks
+        const isoDates = [];
+        const labels   = [];
+        const values   = [];
+
         rows.forEach(r => {
-          const dateIso  = pick(r, ["Date","date","dateISO"]);
-          const wo       = Number(pick(r, ["withoutARENH","without_arenh","woARENH"]));
-          if (!dateIso || Number.isNaN(wo)) return;
-          labels.push(toFr(String(dateIso)));
+          const iso = pick(r, ["Date","date","dateISO"]);
+          const wo  = Number(pick(r, ["withoutARENH","without_arenh","woARENH"]));
+          if (!iso || Number.isNaN(wo)) return;
+          isoDates.push(String(iso));
+          labels.push(fmtDate(iso));  // labels “jolie date”
           values.push(wo);
         });
 
-        // Serrage de l'axe Y pour ne pas aplatir la courbe
+        // Axe Y serré pour éviter l’effet écrasé
         const yMin = Math.min(...values);
         const yMax = Math.max(...values);
-        const pad  = Math.max((yMax - yMin) * 0.06, 0.0005); // ~6% de marge mini
+        const pad  = Math.max((yMax - yMin) * 0.06, 0.0005);
 
         const ctx = document.getElementById("myChart").getContext("2d");
+
+        // Dégradé violet Papernest
+        const g = ctx.createLinearGradient(0, 0, 0, 280);
+        g.addColorStop(0, "rgba(90, 82, 255, 0.30)");  // #5a52ff à 30%
+        g.addColorStop(1, "rgba(90, 82, 255, 0)");
+
         new Chart(ctx, {
           type: "line",
           data: {
@@ -72,16 +83,16 @@
             datasets: [{
               label: "Sans ARENH",
               data: values,
-              borderColor: "#0fc4b2",   // papernest turquoise
+              borderColor: "#5a52ff",   // violet Papernest
+              backgroundColor: g,       // dégradé
               borderWidth: 1.8,
               pointRadius: 0,
               tension: 0.28,
-              fill: false               // pas de fond
+              fill: true
             }]
           },
           options: {
-            // maintainAspectRatio reste à true (par défaut) -> même logique que le graph qui marche
-            responsive: true,
+            responsive: true, // keep default maintainAspectRatio: true
             interaction: { mode: 'nearest', intersect: false },
             plugins: {
               legend: { display: false },
@@ -103,10 +114,17 @@
                   color: "#6b7280",
                   callback: v => `${Number(v).toFixed(3)} €`
                 },
-                grid: { color: "rgba(0,0,0,0.05)" }
+                grid: { color: "rgba(0,0,0,0.06)" }
               },
               x: {
-                ticks: { color: "#6b7280", maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+                ticks: {
+                  color: "#6b7280",
+                  maxRotation: 0,
+                  autoSkip: true,
+                  maxTicksLimit: 8,
+                  // on réaffiche une jolie date au cas où Chart.js passe par l’index
+                  callback: (val, idx) => fmtDate(isoDates[idx] ?? labels[idx])
+                },
                 grid: { display: false }
               }
             }
@@ -123,3 +141,4 @@
   </script>
 </body>
 </html>
+
