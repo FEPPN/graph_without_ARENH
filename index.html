@@ -7,48 +7,38 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    /* Empêche tout scroll dans l’iframe */
-    html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: contain; }
+    *{box-sizing:border-box}
+    /* Page interne = pile la hauteur de l’iframe (viewport) et AUCUN scroll */
+    html, body { height:100vh; margin:0; overflow:hidden; overscroll-behavior:contain; }
 
     body {
-      background: #f9fafb;
-      font-family: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 40px 16px;
-      color: #111827;
+      background:#f9fafb;
+      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      display:flex; justify-content:center; align-items:stretch; /* étire en hauteur */
     }
+
     .chart-wrapper {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 6px 18px rgba(0,0,0,.05);
-      padding: 24px 20px;
-      max-width: 940px;
-      width: 100%;
-      overflow: hidden; /* sécurité anti-débordement */
+      background:#fff;
+      border-radius:16px;
+      box-shadow:0 6px 18px rgba(0,0,0,.05);
+      padding:20px 18px;
+      max-width:940px; width:100%;
+      height:100vh;           /* clé : occupe toute la hauteur */
+      overflow:hidden;        /* sécurité anti-débordement */
     }
-    h1 {
-      margin: 0 0 20px;
-      text-align: center;
-      font-size: 24px;
-      font-weight: 600;
-      color: #111827; /* Noir sobre */
-      letter-spacing: -0.3px;
+
+    h1{
+      margin:0 0 12px;
+      text-align:center;
+      font-size:24px; font-weight:600; color:#111827; letter-spacing:-.3px;
     }
-    /* Hauteur fixe du canvas = pas de scroll vertical */
-    canvas {
-      display: block;
-      width: 100% !important;
-      height: 420px !important;
-    }
-    @media (max-width: 520px){
-      canvas { height: 360px !important; }
-    }
+
+    /* Le canvas sera “piloté” en JS pour prendre la hauteur dispo */
+    canvas{ display:block; width:100% !important; height:300px !important; } /* valeur de secours */
   </style>
 </head>
 <body>
-  <div class="chart-wrapper">
+  <div class="chart-wrapper" id="wrap">
     <h1>Prix électricité — Sans ARENH</h1>
     <canvas id="myChart" aria-label="Courbe Sans ARENH" role="img"></canvas>
   </div>
@@ -56,10 +46,7 @@
   <script>
     const jsonUrl = "https://raw.githubusercontent.com/FEPPN/Graph/main/data.json";
 
-    const pick = (obj, keys) => {
-      for (const k of keys) if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
-      return undefined;
-    };
+    const pick = (obj, keys) => { for (const k of keys) if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k]; };
     const toFr = (iso) => {
       if (typeof iso !== "string") return String(iso ?? "");
       const [y,m,d] = iso.split("-");
@@ -68,23 +55,32 @@
     };
 
     const SERIES = "without"; // "without" => Sans ARENH, "with" => Avec ARENH
+    let chart;
+
+    // Calcule la hauteur disponible pour le canvas = hauteur carte - (titre + padding)
+    function sizeCanvas(){
+      const wrap = document.getElementById('wrap');
+      const title = wrap.querySelector('h1');
+      const canvas = document.getElementById('myChart');
+      const cs = getComputedStyle(wrap);
+      const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      // petit espace sous le titre
+      const gap = 6;
+      const available = Math.max(240, wrap.clientHeight - title.offsetHeight - padV - gap);
+      canvas.style.height = available + 'px';
+      if (chart) chart.resize();
+    }
 
     fetch(jsonUrl + "?v=" + Date.now(), { cache: "no-store" })
-      .then(r => {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
+      .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(rows => {
         const labels = [], values = [];
-
         rows.forEach(r => {
-          const dateIso = pick(r, ["Date", "date", "dateISO"]);
-          const vWithout = Number(pick(r, ["withoutARENH", "without_arenh", "woARENH"]));
-          const vWith    = Number(pick(r, ["withARENH", "with_arenh", "wARENH"]));
-
+          const dateIso = pick(r, ["Date","date","dateISO"]);
+          const vWithout = Number(pick(r, ["withoutARENH","without_arenh","woARENH"]));
+          const vWith    = Number(pick(r, ["withARENH","with_arenh","wARENH"]));
           const y = SERIES === "without" ? vWithout : vWith;
           if (!dateIso || Number.isNaN(y)) return;
-
           labels.push(toFr(String(dateIso)));
           values.push(y);
         });
@@ -101,7 +97,7 @@
           g.addColorStop(1, "rgba(90, 82, 255, 0)");
         }
 
-        new Chart(ctx, {
+        chart = new Chart(ctx, {
           type: "line",
           data: {
             labels,
@@ -118,7 +114,7 @@
           },
           options: {
             responsive: true,
-            maintainAspectRatio: false, // respecte la hauteur CSS fixée (anti-scroll)
+            maintainAspectRatio: false,   // remplit la hauteur calculée
             animation: false,
             interaction: { mode: 'nearest', intersect: false },
             plugins: {
@@ -136,10 +132,7 @@
             },
             scales: {
               y: {
-                ticks: {
-                  color: "#6b7280",
-                  callback: v => `${Number(v).toFixed(3)} €`
-                },
+                ticks: { color: "#6b7280", callback: v => `${Number(v).toFixed(3)} €` },
                 grid: { color: "rgba(0,0,0,0.05)" }
               },
               x: {
@@ -149,6 +142,13 @@
             }
           }
         });
+
+        // Ajuste la hauteur maintenant et à chaque resize
+        sizeCanvas();
+        addEventListener('resize', sizeCanvas);
+
+        // Pour les thèmes WordPress/iframes qui modifient la taille après insertion
+        new ResizeObserver(sizeCanvas).observe(document.getElementById('wrap'));
       })
       .catch(err => {
         console.error("Erreur chargement JSON:", err);
