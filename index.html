@@ -17,16 +17,15 @@
       background:#fff;
       border-radius:16px;
       box-shadow:0 8px 24px rgba(0,0,0,.06);
-      padding:8px 16px 12px;    /* top réduit pour coller le graphe */
+      padding:8px 16px 12px;           /* colle le graphe en haut/bas */
       width:100%; max-width:940px;
-      margin:0 auto;            /* plus d’espace au-dessus */
+      margin:0 auto;
     }
     h1{
-      margin:0 0 6px;           /* marge basse minimale */
+      margin:0 0 6px;
       text-align:center;
       font-size:22px; font-weight:600; color:#0b0f19;
     }
-    /* Le JS fige la taille réelle du canvas (pas de reflow) */
     #myChart{ display:block; width:100%; height:auto; }
   </style>
 </head>
@@ -51,13 +50,8 @@
     function sizeCanvasOnce(){
       const wrap   = document.getElementById('wrap');
       const canvas = document.getElementById('myChart');
-
-      // largeur = largeur interne du wrapper
-      const w = Math.floor(wrap.clientWidth);
-      // hauteur confortable sous 560px d'iframe
-      const h = 480;
-
-      // Définir les ATTRIBUTS width/height du canvas (clé)
+      const w = Math.floor(wrap.clientWidth);  // largeur interne
+      const h = 480;                           // < 560px -> pas de scroll dans l’iframe
       canvas.setAttribute('width', String(w));
       canvas.setAttribute('height', String(h));
       return canvas.getContext('2d');
@@ -82,12 +76,6 @@
         const pad  = Math.max((yMax - yMin) * 0.06, 0.0005);
 
         const ctx = sizeCanvasOnce();  // fige la taille
-        const canvas = ctx.canvas;
-
-        // Dégradé violet Papernest sous la courbe (léger)
-        const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        g.addColorStop(0, "rgba(90, 82, 255, 0.22)");  // #5a52ff 22%
-        g.addColorStop(1, "rgba(90, 82, 255, 0.00)");
 
         if (chart) chart.destroy();
 
@@ -98,21 +86,31 @@
             datasets: [{
               label: "Sans ARENH",
               data: values,
-              borderColor: "#5a52ff",   // violet Papernest
-              backgroundColor: g,       // dégradé
+              borderColor: "#5a52ff",   // violet papernest
               borderWidth: 2,
               pointRadius: 0,
               tension: 0.28,
-              fill: true                 // active le dégradé
+              fill: 'origin',
+              // Dégradé limité à la zone du graphe (pas de débordement)
+              backgroundColor: (c) => {
+                const { chart } = c;
+                const { ctx: gctx, chartArea } = chart;
+                if (!chartArea) return 'rgba(0,0,0,0)'; // 1er render
+                const g = gctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                g.addColorStop(0, 'rgba(90, 82, 255, 0.22)');
+                g.addColorStop(1, 'rgba(90, 82, 255, 0.00)');
+                return g;
+              },
+              clip: { left: 0, top: 0, right: 0, bottom: 0 } // sécurité: pas hors zone
             }]
           },
           options: {
-            // Désactivé = pas de “danse” au scroll
-            responsive: false,
+            responsive: false,            // stable (pas de "danse")
             animation: false,
-            layout: { padding: 0 }, // colle le graphe
+            layout: { padding: 0 },       // colle au conteneur
             interaction: { mode: 'nearest', intersect: false },
             plugins: {
+              filler: { propagate: false }, // le remplissage ne dépasse pas
               legend: { display: false },
               tooltip: {
                 backgroundColor: "#fff",
@@ -160,6 +158,7 @@
   </script>
 </body>
 </html>
+
 
 
 
