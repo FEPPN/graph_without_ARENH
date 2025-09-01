@@ -17,15 +17,16 @@
       background:#fff;
       border-radius:16px;
       box-shadow:0 8px 24px rgba(0,0,0,.06);
-      padding:14px 16px;        /* compact pour rester < 560px */
+      padding:8px 16px 12px;    /* top réduit pour coller le graphe */
       width:100%; max-width:940px;
-      margin:12px auto;
+      margin:0 auto;            /* plus d’espace au-dessus */
     }
     h1{
-      margin:0 0 6px; text-align:center;
+      margin:0 0 6px;           /* marge basse minimale */
+      text-align:center;
       font-size:22px; font-weight:600; color:#0b0f19;
     }
-    /* On laisse le JS définir largeur/hauteur réelles (attributs) */
+    /* Le JS fige la taille réelle du canvas (pas de reflow) */
     #myChart{ display:block; width:100%; height:auto; }
   </style>
 </head>
@@ -49,7 +50,6 @@
     // Taille "safe": on fige le canvas (pas de responsive Chart.js)
     function sizeCanvasOnce(){
       const wrap   = document.getElementById('wrap');
-      const title  = wrap.querySelector('h1');
       const canvas = document.getElementById('myChart');
 
       // largeur = largeur interne du wrapper
@@ -57,7 +57,7 @@
       // hauteur confortable sous 560px d'iframe
       const h = 480;
 
-      // Très important: définir les ATTRIBUTS width/height du canvas
+      // Définir les ATTRIBUTS width/height du canvas (clé)
       canvas.setAttribute('width', String(w));
       canvas.setAttribute('height', String(h));
       return canvas.getContext('2d');
@@ -82,9 +82,14 @@
         const pad  = Math.max((yMax - yMin) * 0.06, 0.0005);
 
         const ctx = sizeCanvasOnce();  // fige la taille
+        const canvas = ctx.canvas;
 
-        // Détruit un éventuel ancien graphe (au cas où)
-        if (chart) { chart.destroy(); }
+        // Dégradé violet Papernest sous la courbe (léger)
+        const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        g.addColorStop(0, "rgba(90, 82, 255, 0.22)");  // #5a52ff 22%
+        g.addColorStop(1, "rgba(90, 82, 255, 0.00)");
+
+        if (chart) chart.destroy();
 
         chart = new Chart(ctx, {
           type: "line",
@@ -93,18 +98,19 @@
             datasets: [{
               label: "Sans ARENH",
               data: values,
-              borderColor: "#5a52ff",  // violet Papernest
+              borderColor: "#5a52ff",   // violet Papernest
+              backgroundColor: g,       // dégradé
               borderWidth: 2,
               pointRadius: 0,
               tension: 0.28,
-              fill: false               // <— aucun fond
-              // surtout: PAS de backgroundColor ici
+              fill: true                 // active le dégradé
             }]
           },
           options: {
-            // >>> Désactivé pour éviter toute “danse” au scroll
+            // Désactivé = pas de “danse” au scroll
             responsive: false,
             animation: false,
+            layout: { padding: { top: 0, right: 0, bottom: 0, left: 0 } }, // colle le graphe
             interaction: { mode: 'nearest', intersect: false },
             plugins: {
               legend: { display: false },
@@ -126,7 +132,8 @@
                   color: "#6b7280",
                   callback: v => `${Number(v).toFixed(3)} €`
                 },
-                grid: { color: "rgba(0,0,0,0.06)" }
+                grid: { color: "rgba(0,0,0,0.06)" },
+                border: { display:false }
               },
               x: {
                 ticks: {
@@ -136,7 +143,8 @@
                   maxTicksLimit: 8,
                   callback: (val, idx) => fmtDate(isoDates[idx] ?? labels[idx])
                 },
-                grid: { display: false }
+                grid: { display: false },
+                border: { display:false }
               }
             }
           }
@@ -152,6 +160,7 @@
   </script>
 </body>
 </html>
+
 
 
 
