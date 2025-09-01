@@ -11,34 +11,43 @@
       margin: 0;
       background: #f9fafb;
       font-family: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
-      display: flex; justify-content: center; align-items: flex-start;
-      padding: 36px 14px;
+      display: flex; 
+      justify-content: center; 
+      align-items: flex-start;
+      padding: 40px 16px;
+      color: #111827;
     }
     .chart-wrapper {
       background: #fff;
       border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.06);
-      padding: 20px 18px;
-      max-width: 940px; width: 100%;
+      box-shadow: 0 6px 18px rgba(0,0,0,.05);
+      padding: 24px 20px;
+      max-width: 940px; 
+      width: 100%;
     }
     h1 {
-      margin: 0 0 16px; text-align: center;
-      font-size: 22px; font-weight: 600; color: #5a52ff;
+      margin: 0 0 20px; 
+      text-align: center;
+      font-size: 24px; 
+      font-weight: 600; 
+      color: #111827; /* Noir sobre */
+      letter-spacing: -0.3px;
     }
-    canvas { width: 100% !important; height: auto !important; }
+    canvas { 
+      width: 100% !important; 
+      height: auto !important; 
+    }
   </style>
 </head>
 <body>
   <div class="chart-wrapper">
-    <h1>Prix électricité — <span style="color:#0fc4b2">Sans ARENH</span></h1>
+    <h1>Prix électricité — Sans ARENH</h1>
     <canvas id="myChart" aria-label="Courbe Sans ARENH" role="img"></canvas>
   </div>
 
   <script>
-    // JSON partagé depuis l’autre repo (on réutilise la même source, pas besoin d’en créer une seconde)
     const jsonUrl = "https://raw.githubusercontent.com/FEPPN/Graph/main/data.json";
 
-    // Utilitaires
     const pick = (obj, keys) => {
       for (const k of keys) if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
       return undefined;
@@ -50,7 +59,6 @@
       try { return new Date(iso).toLocaleDateString('fr-FR'); } catch { return iso; }
     };
 
-    // Choisis la série à afficher: "without" OU "with"
     const SERIES = "without"; // "without" => Sans ARENH, "with" => Avec ARENH
 
     fetch(jsonUrl + "?v=" + Date.now(), { cache: "no-store" })
@@ -59,8 +67,7 @@
         return r.json();
       })
       .then(rows => {
-        const labels = [];
-        const values = [];
+        const labels = [], values = [];
 
         rows.forEach(r => {
           const dateIso = pick(r, ["Date", "date", "dateISO"]);
@@ -76,8 +83,7 @@
 
         const ctx = document.getElementById("myChart").getContext("2d");
 
-        // Couleurs Papernest — Sans ARENH (turquoise) / Avec ARENH (violet)
-        const colorLine   = SERIES === "without" ? "#0fc4b2" : "#5a52ff";
+        const colorLine = SERIES === "without" ? "#0fc4b2" : "#5a52ff";
         const g = ctx.createLinearGradient(0,0,0,280);
         if (SERIES === "without") {
           g.addColorStop(0, "rgba(15, 196, 178, 0.30)");
@@ -97,14 +103,14 @@
               borderColor: colorLine,
               backgroundColor: g,
               pointRadius: 0,
-              borderWidth: 1.4,   // trait fin
+              borderWidth: 1.6,
               fill: true,
               tension: 0.28
             }]
           },
           options: {
             responsive: true,
-            animation: false, // priorité à la vitesse
+            animation: false,
             interaction: { mode: 'nearest', intersect: false },
             plugins: {
               legend: { display: false },
@@ -145,4 +151,5 @@
   </script>
 </body>
 </html>
+
 
