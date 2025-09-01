@@ -7,26 +7,30 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
+    /* ZÉRO scroll dans l'iframe : contenu compact */
+    html, body { margin:0; overflow:hidden; }
     body {
-      margin: 0;
-      background: #f9fafb;
-      font-family: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
-      display: flex; justify-content: center; align-items: flex-start;
-      padding: 40px 16px;
+      background:#f9fafb;
+      font-family:'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
+      display:flex; justify-content:center; align-items:flex-start;
+      padding:0;                                   /* pas de padding global */
     }
     .chart-wrapper {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.06);
-      padding: 24px 20px;
-      max-width: 940px; 
-      width: 100%;
+      background:#fff;
+      border-radius:16px;
+      box-shadow:0 8px 24px rgba(0,0,0,.06);
+      padding:16px;                                /* compact */
+      width:100%; max-width:940px;
+      margin:12px auto;                            /* petit souffle */
     }
     h1 {
-      margin: 0 0 20px; text-align: center;
-      font-size: 22px; font-weight: 600; color: #0b0f19;
+      margin:0 0 10px; text-align:center;
+      font-size:22px; font-weight:600; color:#0b0f19;
     }
-    canvas { width: 100% !important; height: auto !important; display:block; }
+    /* On fixe une hauteur confortable pour le canvas
+       => total page < 560px (pas de scroll dans l'iframe 560) */
+    #myChart { display:block; width:100% !important; height:480px !important; }
+    @media (max-width:520px){ #myChart { height:420px !important; } }
   </style>
 </head>
 <body>
@@ -40,41 +44,29 @@
 
     const pick = (obj, keys) => { for (const k of keys) if (obj?.[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k]; };
     const fmtDate = (iso) => {
-      try {
-        const d = new Date(iso);
-        // jj/MM/aaaa pour l’axe (clair et compact)
-        return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
-      } catch { return String(iso ?? ""); }
+      try { return new Date(iso).toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'}); }
+      catch { return String(iso ?? ""); }
     };
 
     fetch(jsonUrl, { cache: "no-store" })
       .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(rows => {
-        // on garde les ISO à part pour le callback des ticks
-        const isoDates = [];
-        const labels   = [];
-        const values   = [];
-
+        const isoDates = [], labels = [], values = [];
         rows.forEach(r => {
           const iso = pick(r, ["Date","date","dateISO"]);
           const wo  = Number(pick(r, ["withoutARENH","without_arenh","woARENH"]));
           if (!iso || Number.isNaN(wo)) return;
           isoDates.push(String(iso));
-          labels.push(fmtDate(iso));  // labels “jolie date”
+          labels.push(fmtDate(iso));
           values.push(wo);
         });
 
-        // Axe Y serré pour éviter l’effet écrasé
+        // Axe Y serré (pas d’écrasement)
         const yMin = Math.min(...values);
         const yMax = Math.max(...values);
         const pad  = Math.max((yMax - yMin) * 0.06, 0.0005);
 
         const ctx = document.getElementById("myChart").getContext("2d");
-
-        // Dégradé violet Papernest
-        const g = ctx.createLinearGradient(0, 0, 0, 280);
-        g.addColorStop(0, "rgba(90, 82, 255, 0.30)");  // #5a52ff à 30%
-        g.addColorStop(1, "rgba(90, 82, 255, 0)");
 
         new Chart(ctx, {
           type: "line",
@@ -83,16 +75,20 @@
             datasets: [{
               label: "Sans ARENH",
               data: values,
-              borderColor: "#5a52ff",   // violet Papernest
-              backgroundColor: g,       // dégradé
-              borderWidth: 1.8,
+              borderColor: "#5a52ff",       // violet papernest
+              borderWidth: 2,
               pointRadius: 0,
               tension: 0.28,
-              fill: false
+              fill: false                    // <-- aucun fond
+              // (et surtout PAS de backgroundColor ici)
             }]
           },
           options: {
-            responsive: true, // keep default maintainAspectRatio: true
+            responsive: true,
+            maintainAspectRatio: false,     // respecte la hauteur CSS du canvas
+            resizeDelay: 200,               // fluide: évite les micro-resizes
+            devicePixelRatio: window.devicePixelRatio || 1,
+            animation: false,
             interaction: { mode: 'nearest', intersect: false },
             plugins: {
               legend: { display: false },
@@ -102,7 +98,7 @@
                 titleColor: "#111827", bodyColor: "#4b5563",
                 titleFont: { weight:'700' }, bodyFont: { weight:'500' },
                 padding: 10, cornerRadius: 10,
-                callbacks: { label: (ctx) => `${ctx.parsed.y.toFixed(4)} € / kWh` }
+                callbacks: { label: (c) => `${c.parsed.y.toFixed(4)} € / kWh` }
               }
             },
             scales: {
@@ -122,7 +118,6 @@
                   maxRotation: 0,
                   autoSkip: true,
                   maxTicksLimit: 8,
-                  // on réaffiche une jolie date au cas où Chart.js passe par l’index
                   callback: (val, idx) => fmtDate(isoDates[idx] ?? labels[idx])
                 },
                 grid: { display: false }
@@ -141,4 +136,5 @@
   </script>
 </body>
 </html>
+
 
