@@ -7,38 +7,36 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    *{box-sizing:border-box}
-    /* Page interne = pile la hauteur de l’iframe (viewport) et AUCUN scroll */
-    html, body { height:100vh; margin:0; overflow:hidden; overscroll-behavior:contain; }
-
+    html, body { height:100vh; margin:0; overflow:hidden; }
     body {
       background:#f9fafb;
-      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      display:flex; justify-content:center; align-items:stretch; /* étire en hauteur */
+      font-family:'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
+      display:flex; justify-content:center; align-items:center;
     }
-
     .chart-wrapper {
       background:#fff;
       border-radius:16px;
       box-shadow:0 6px 18px rgba(0,0,0,.05);
-      padding:20px 18px;
+      padding:20px;
       max-width:940px; width:100%;
-      height:100vh;           /* clé : occupe toute la hauteur */
-      overflow:hidden;        /* sécurité anti-débordement */
+      height:100vh;
+      display:flex; flex-direction:column;
+      justify-content:center;
     }
-
-    h1{
-      margin:0 0 12px;
+    h1 {
+      margin:0 0 16px;
       text-align:center;
-      font-size:24px; font-weight:600; color:#111827; letter-spacing:-.3px;
+      font-size:22px; font-weight:600; color:#111827;
     }
-
-    /* Le canvas sera “piloté” en JS pour prendre la hauteur dispo */
-    canvas{ display:block; width:100% !important; height:300px !important; } /* valeur de secours */
+    canvas {
+      flex:1;
+      width:100% !important;
+      height:100% !important;
+    }
   </style>
 </head>
 <body>
-  <div class="chart-wrapper" id="wrap">
+  <div class="chart-wrapper">
     <h1>Prix électricité — Sans ARENH</h1>
     <canvas id="myChart" aria-label="Courbe Sans ARENH" role="img"></canvas>
   </div>
@@ -46,7 +44,9 @@
   <script>
     const jsonUrl = "https://raw.githubusercontent.com/FEPPN/Graph/main/data.json";
 
-    const pick = (obj, keys) => { for (const k of keys) if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k]; };
+    const pick = (obj, keys) => {
+      for (const k of keys) if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
+    };
     const toFr = (iso) => {
       if (typeof iso !== "string") return String(iso ?? "");
       const [y,m,d] = iso.split("-");
@@ -55,49 +55,29 @@
     };
 
     const SERIES = "without"; // "without" => Sans ARENH, "with" => Avec ARENH
-    let chart;
 
-    // Calcule la hauteur disponible pour le canvas = hauteur carte - (titre + padding)
-    function sizeCanvas(){
-      const wrap = document.getElementById('wrap');
-      const title = wrap.querySelector('h1');
-      const canvas = document.getElementById('myChart');
-      const cs = getComputedStyle(wrap);
-      const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-      // petit espace sous le titre
-      const gap = 6;
-      const available = Math.max(240, wrap.clientHeight - title.offsetHeight - padV - gap);
-      canvas.style.height = available + 'px';
-      if (chart) chart.resize();
-    }
-
-    fetch(jsonUrl + "?v=" + Date.now(), { cache: "no-store" })
-      .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    fetch(jsonUrl + "?v=" + Date.now(), { cache:"no-store" })
+      .then(r => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
       .then(rows => {
         const labels = [], values = [];
+
         rows.forEach(r => {
           const dateIso = pick(r, ["Date","date","dateISO"]);
           const vWithout = Number(pick(r, ["withoutARENH","without_arenh","woARENH"]));
           const vWith    = Number(pick(r, ["withARENH","with_arenh","wARENH"]));
           const y = SERIES === "without" ? vWithout : vWith;
           if (!dateIso || Number.isNaN(y)) return;
-          labels.push(toFr(String(dateIso)));
+          labels.push(toFr(dateIso));
           values.push(y);
         });
 
         const ctx = document.getElementById("myChart").getContext("2d");
-
         const colorLine = SERIES === "without" ? "#0fc4b2" : "#5a52ff";
-        const g = ctx.createLinearGradient(0,0,0,280);
-        if (SERIES === "without") {
-          g.addColorStop(0, "rgba(15, 196, 178, 0.30)");
-          g.addColorStop(1, "rgba(15, 196, 178, 0)");
-        } else {
-          g.addColorStop(0, "rgba(90, 82, 255, 0.30)");
-          g.addColorStop(1, "rgba(90, 82, 255, 0)");
-        }
 
-        chart = new Chart(ctx, {
+        new Chart(ctx, {
           type: "line",
           data: {
             labels,
@@ -105,50 +85,45 @@
               label: SERIES === "without" ? "Sans ARENH" : "Avec ARENH",
               data: values,
               borderColor: colorLine,
-              backgroundColor: g,
+              borderWidth: 2,
               pointRadius: 0,
-              borderWidth: 1.6,
-              fill: true,
-              tension: 0.28
+              fill: false,        // <-- plus de fond
+              tension: 0.25
             }]
           },
           options: {
-            responsive: true,
-            maintainAspectRatio: false,   // remplit la hauteur calculée
-            animation: false,
-            interaction: { mode: 'nearest', intersect: false },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                backgroundColor: "#fff",
-                borderColor: "#e5e7eb", borderWidth: 1,
-                titleColor: "#111827", bodyColor: "#4b5563",
-                titleFont: { weight:'700' }, bodyFont: { weight:'500' },
-                padding: 10, cornerRadius: 10,
-                callbacks: {
+            responsive:true,
+            maintainAspectRatio:false,
+            animation:false,
+            interaction:{ mode:'nearest', intersect:false },
+            plugins:{
+              legend:{ display:false },
+              tooltip:{
+                backgroundColor:"#fff",
+                borderColor:"#e5e7eb", borderWidth:1,
+                titleColor:"#111827", bodyColor:"#374151",
+                titleFont:{ weight:'700' }, bodyFont:{ weight:'500' },
+                padding:10, cornerRadius:8,
+                callbacks:{
                   label: (ctx) => `${ctx.parsed.y.toFixed(4)} € / kWh`
                 }
               }
             },
-            scales: {
-              y: {
-                ticks: { color: "#6b7280", callback: v => `${Number(v).toFixed(3)} €` },
-                grid: { color: "rgba(0,0,0,0.05)" }
+            scales:{
+              y:{
+                ticks:{
+                  color:"#6b7280",
+                  callback:v => `${Number(v).toFixed(3)} €`
+                },
+                grid:{ color:"rgba(0,0,0,0.06)" }
               },
-              x: {
-                ticks: { color: "#6b7280", maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
-                grid: { display: false }
+              x:{
+                ticks:{ color:"#6b7280", maxRotation:0, autoSkip:true, maxTicksLimit:8 },
+                grid:{ display:false }
               }
             }
           }
         });
-
-        // Ajuste la hauteur maintenant et à chaque resize
-        sizeCanvas();
-        addEventListener('resize', sizeCanvas);
-
-        // Pour les thèmes WordPress/iframes qui modifient la taille après insertion
-        new ResizeObserver(sizeCanvas).observe(document.getElementById('wrap'));
       })
       .catch(err => {
         console.error("Erreur chargement JSON:", err);
@@ -160,3 +135,4 @@
   </script>
 </body>
 </html>
+
