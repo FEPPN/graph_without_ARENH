@@ -7,24 +7,44 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    html, body { margin:0; overflow:hidden; }
+    html, body { margin:0; }
     body{
-      background:#f9fafb; font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background:#f9fafb;
+      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
       display:flex; justify-content:center;
     }
     .chart-wrapper{
-      background:#fff; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,.06);
-      padding:8px 16px 8px;               /* top/bottom mini -> pas de bandes */
-      width:100%; max-width:940px; margin:0 auto;
+      background:#fff; border-radius:16px;
+      box-shadow:0 8px 24px rgba(0,0,0,.06);
+      padding:8px 16px;
+      width:100%;
+      max-width:940px;
+      margin:0 auto;
     }
-    h1{ margin:0 0 6px; text-align:center; font-size:22px; font-weight:600; color:#0b0f19; }
-     #myChart{ display:block; width:100%; height:auto; }
+    h1{
+      margin:0 0 6px;
+      text-align:center;
+      font-size:22px;
+      font-weight:600;
+      color:#0b0f19;
+    }
+    #myChart{
+      display:block;
+      width:100%;
+      height:420px; /* hauteur de base */
+    }
+
+    /* ✅ Sur mobile : on réduit légèrement la hauteur */
+    @media (max-width:600px){
+      #myChart{ height:300px; }
+      h1{ font-size:18px; }
+      .chart-wrapper{ padding:6px 10px; }
+    }
   </style>
 </head>
 <body>
   <div class="chart-wrapper" id="wrap">
     <h1>Prédiction du prix du kWh TTC au TRVE résidentiel en 2026</h1>
-    
     <canvas id="myChart" aria-label="Courbe Sans ARENH" role="img"></canvas>
   </div>
 
@@ -35,14 +55,6 @@
     const fmtDate = iso => { try { return new Date(iso).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});} catch { return String(iso??""); }};
 
     let chart;
-    function sizeCanvasOnce(){
-      const wrap = document.getElementById('wrap');
-      const cvs  = document.getElementById('myChart');
-      const w = Math.floor(wrap.clientWidth);
-      const h = 480;                    // < 560px de l'iframe -> pas de scroll
-      cvs.width = w; cvs.height = h;    // fige la taille (pas de “danse”)
-      return cvs.getContext('2d');
-    }
 
     fetch(jsonUrl, { cache:"no-store" })
       .then(r => { if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
@@ -52,13 +64,16 @@
           const iso = pick(r,["Date","date","dateISO"]);
           const wo  = Number(pick(r,["withoutARENH","without_arenh","woARENH"]));
           if(!iso || Number.isNaN(wo)) return;
-          isoDates.push(String(iso)); labels.push(fmtDate(iso)); values.push(wo);
+          isoDates.push(String(iso));
+          labels.push(fmtDate(iso));
+          values.push(wo);
         });
 
-        const yMin = Math.min(...values), yMax = Math.max(...values);
+        const yMin = Math.min(...values);
+        const yMax = Math.max(...values);
         const pad  = Math.max((yMax - yMin) * 0.06, 0.0005);
 
-        const ctx = sizeCanvasOnce();
+        const ctx = document.getElementById('myChart').getContext('2d');
         if (chart) chart.destroy();
 
         chart = new Chart(ctx, {
@@ -73,7 +88,6 @@
               pointRadius: 0,
               tension: 0.28,
               fill: 'origin',
-              // Dégradé SCRIPTABLE **limité à la chartArea**
               backgroundColor: (c) => {
                 const { chart } = c;
                 const ca = chart.chartArea;
@@ -86,11 +100,13 @@
             }]
           },
           options: {
-            responsive:false, animation:false,
-            layout:{ padding:{ top:0, right:0, bottom:0, left:0 } }, // pas de marge ajoutée
+            responsive:true,            // ✅ graphique s’adapte automatiquement
+            maintainAspectRatio:false,  // ✅ garde la hauteur CSS
+            animation:false,
+            layout:{ padding:{ top:0, right:0, bottom:0, left:0 } },
             interaction:{ mode:'nearest', intersect:false },
             plugins:{
-              filler:{ propagate:false },         // ne déborde pas sous l'axe
+              filler:{ propagate:false },
               legend:{ display:false },
               tooltip:{
                 backgroundColor:"#fff", borderColor:"#e5e7eb", borderWidth:1,
@@ -101,12 +117,19 @@
               }
             },
             scales:{
-              y:{ min:yMin-pad, max:yMax+pad, beginAtZero:false,
-                  ticks:{ color:"#6b7280", callback:v=>`${Number(v).toFixed(4)} €` },
-                  grid:{ color:'rgba(0,0,0,0.06)' }, border:{ display:false } },
-              x:{ ticks:{ color:"#6b7280", maxRotation:0, autoSkip:true, maxTicksLimit:8,
-                          callback:(v,i)=>fmtDate(isoDates[i] ?? labels[i]) },
-                  grid:{ display:false }, border:{ display:false } }
+              y:{
+                min:yMin-pad, max:yMax+pad, beginAtZero:false,
+                ticks:{
+                  color:"#6b7280",
+                  callback:v=>`${Number(v).toFixed(4)} €`
+                },
+                grid:{ color:'rgba(0,0,0,0.06)' }, border:{ display:false }
+              },
+              x:{
+                ticks:{ color:"#6b7280", maxRotation:0, autoSkip:true, maxTicksLimit:8,
+                        callback:(v,i)=>fmtDate(isoDates[i] ?? labels[i]) },
+                grid:{ display:false }, border:{ display:false }
+              }
             }
           }
         });
