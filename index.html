@@ -6,57 +6,93 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
   <style>
     html, body { margin:0; overflow:hidden; }
-    body{
-      background:#f9fafb; font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      display:flex; justify-content:center;
+    body {
+      background:#f9fafb;
+      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      display:flex;
+      justify-content:center;
     }
-    .chart-wrapper{
-      background:#fff; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,.06);
-      padding:8px 16px 8px;               /* top/bottom mini -> pas de bandes */
-      width:100%; max-width:940px; margin:0 auto;
+    .chart-wrapper {
+      background:#fff;
+      border-radius:16px;
+      box-shadow:0 8px 24px rgba(0,0,0,.06);
+      padding:8px 16px;
+      width:100%;
+      max-width:940px;
+      margin:0 auto;
     }
-    h1{ margin:0 0 6px; text-align:center; font-size:22px; font-weight:600; color:#0b0f19; }
-     #myChart{ display:block; width:100%; height:auto; }
+    h1 {
+      margin:0 0 6px;
+      text-align:center;
+      font-size:22px;
+      font-weight:600;
+      color:#0b0f19;
+    }
+    #myChart {
+      display:block;
+      width:100%;
+      height:auto;
+    }
   </style>
 </head>
+
 <body>
   <div class="chart-wrapper" id="wrap">
     <h1>Prédiction du prix du kWh TTC au TRVE résidentiel en 2026</h1>
-    
     <canvas id="myChart" aria-label="Courbe Sans ARENH" role="img"></canvas>
   </div>
 
   <script>
     const jsonUrl = "https://raw.githubusercontent.com/FEPPN/Graph/main/data.json";
 
-    const pick = (o, ks) => { for (const k of ks) if (o?.[k] !== undefined && o[k] !== null && o[k] !== "") return o[k]; };
-    const fmtDate = iso => { try { return new Date(iso).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});} catch { return String(iso??""); }};
+    const pick = (o, ks) => {
+      for (const k of ks)
+        if (o?.[k] !== undefined && o[k] !== null && o[k] !== "") return o[k];
+    };
+    const fmtDate = iso => {
+      try {
+        return new Date(iso).toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      } catch { return String(iso ?? ""); }
+    };
 
     let chart;
-    function sizeCanvasOnce(){
+
+    function sizeCanvasOnce() {
       const wrap = document.getElementById('wrap');
       const cvs  = document.getElementById('myChart');
       const w = Math.floor(wrap.clientWidth);
-      const h = 480;                    // < 560px de l'iframe -> pas de scroll
-      cvs.width = w; cvs.height = h;    // fige la taille (pas de “danse”)
+      const h = 480; // hauteur fixe stable
+      cvs.width = w;
+      cvs.height = h;
       return cvs.getContext('2d');
     }
 
-    fetch(jsonUrl, { cache:"no-store" })
-      .then(r => { if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    fetch(jsonUrl, { cache: "no-store" })
+      .then(r => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
       .then(rows => {
-        const isoDates=[], labels=[], values=[];
-        rows.forEach(r=>{
-          const iso = pick(r,["Date","date","dateISO"]);
-          const wo  = Number(pick(r,["withoutARENH","without_arenh","woARENH"]));
-          if(!iso || Number.isNaN(wo)) return;
-          isoDates.push(String(iso)); labels.push(fmtDate(iso)); values.push(wo);
+        const isoDates = [], labels = [], values = [];
+        rows.forEach(r => {
+          const iso = pick(r, ["Date", "date", "dateISO"]);
+          const wo = Number(pick(r, ["withoutARENH", "without_arenh", "woARENH"]));
+          if (!iso || Number.isNaN(wo)) return;
+          isoDates.push(String(iso));
+          labels.push(fmtDate(iso));
+          values.push(wo);
         });
 
-        const yMin = Math.min(...values), yMax = Math.max(...values);
-        const pad  = Math.max((yMax - yMin) * 0.06, 0.0005);
+        const yMin = Math.min(...values);
+        const yMax = Math.max(...values);
+        const pad = Math.max((yMax - yMin) * 0.06, 0.0005);
 
         const ctx = sizeCanvasOnce();
         if (chart) chart.destroy();
@@ -73,7 +109,6 @@
               pointRadius: 0,
               tension: 0.28,
               fill: 'origin',
-              // Dégradé SCRIPTABLE **limité à la chartArea**
               backgroundColor: (c) => {
                 const { chart } = c;
                 const ca = chart.chartArea;
@@ -86,47 +121,65 @@
             }]
           },
           options: {
-            responsive:false, animation:false,
-            layout:{ padding:{ top:0, right:0, bottom:0, left:0 } }, // pas de marge ajoutée
-            interaction:{ mode:'nearest', intersect:false },
-            plugins:{
-              filler:{ propagate:false },         // ne déborde pas sous l'axe
-              legend:{ display:false },
-              tooltip:{
-                backgroundColor:"#fff", borderColor:"#e5e7eb", borderWidth:1,
-                titleColor:"#111827", bodyColor:"#4b5563",
-                titleFont:{ weight:'700' }, bodyFont:{ weight:'500' },
-                padding:10, cornerRadius:10,
-                callbacks:{ label:(c)=>`${c.parsed.y.toFixed(4)} € / kWh TTC` }
+            responsive: false,
+            animation: false,
+            layout: { padding: { top: 0, right: 0, bottom: 0, left: 0 } },
+            interaction: { mode: 'nearest', intersect: false },
+            plugins: {
+              filler: { propagate: false },
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: "#fff",
+                borderColor: "#e5e7eb",
+                borderWidth: 1,
+                titleColor: "#111827",
+                bodyColor: "#4b5563",
+                titleFont: { weight: '700' },
+                bodyFont: { weight: '500' },
+                padding: 10,
+                cornerRadius: 10,
+                callbacks: {
+                  label: (c) => `${c.parsed.y.toFixed(4)} € / kWh TTC`
+                }
               }
             },
-            scales:{
+            scales: {
               y: {
-  // keep the real range internally, but suggest nice tick bounds
-  suggestedMin: Math.ceil((yMin - pad) * 1000) / 1000,   // e.g. 0.1820
-  suggestedMax: Math.floor((yMax + pad) * 1000) / 1000,  // e.g. 0.1910
-  beginAtZero: false,
-  ticks: {
-    color: "#6b7280",
-    precision: 4,                                  // always 4 decimals
-    callback: v => `${Number(v).toFixed(4)} €`,    // render 4 decimals
-  },
-  grid: { color: "rgba(0,0,0,0.06)" },
-  border: { display: false }
-},
-
-
-              x:{ ticks:{ color:"#6b7280", maxRotation:0, autoSkip:true, maxTicksLimit:8,
-                          callback:(v,i)=>fmtDate(isoDates[i] ?? labels[i]) },
-                  grid:{ display:false }, border:{ display:false } }
+                // ✅ bornes arrondies sans doublon
+                suggestedMin: Math.floor((yMin - pad) * 1000) / 1000,
+                suggestedMax: Math.ceil((yMax + pad) * 1000) / 1000,
+                beginAtZero: false,
+                ticks: {
+                  color: "#6b7280",
+                  precision: 4,
+                  callback: v => `${Number(v).toFixed(4)} €`
+                },
+                grid: { color: "rgba(0,0,0,0.06)" },
+                border: { display: false }
+              },
+              x: {
+                ticks: {
+                  color: "#6b7280",
+                  maxRotation: 0,
+                  autoSkip: true,
+                  maxTicksLimit: 8,
+                  callback: (v, i) => fmtDate(isoDates[i] ?? labels[i])
+                },
+                grid: { display: false },
+                border: { display: false }
+              }
             }
           }
         });
       })
-      .catch(err=>{
+      .catch(err => {
         console.error(err);
-        document.getElementById('wrap').insertAdjacentHTML("beforeend",
-          `<p style="margin-top:8px;color:#ef4444;text-align:center">Erreur de chargement des données.</p>`);
+        document.getElementById('wrap').insertAdjacentHTML(
+          "beforeend",
+          `<p style="margin-top:8px;color:#ef4444;text-align:center">
+            Erreur de chargement des données.
+          </p>`
+        );
       });
   </script>
 </body>
