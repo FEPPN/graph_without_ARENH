@@ -102,22 +102,19 @@
             },
             scales:{
               y: {
-  min: Math.floor((yMin - pad) * 10000) / 10000, // arrondi bas 4 décimales
-  max: Math.ceil((yMax + pad) * 10000) / 10000,  // arrondi haut 4 décimales
+  // keep the real range internally, but suggest nice tick bounds
+  suggestedMin: Math.ceil((yMin - pad) * 1000) / 1000,   // e.g. 0.1820
+  suggestedMax: Math.floor((yMax + pad) * 1000) / 1000,  // e.g. 0.1910
   beginAtZero: false,
   ticks: {
     color: "#6b7280",
-    precision: 4, // force un arrondi constant
-    callback: (v, i, ticks) => {
-      // ✅ supprime les doublons visuels trop proches
-      const prev = ticks[i - 1]?.value ?? null;
-      if (prev !== null && Math.abs(v - prev) < 0.0005) return "";
-      return `${v.toFixed(4)} €`;
-    }
+    precision: 4,                                  // always 4 decimals
+    callback: v => `${Number(v).toFixed(4)} €`,    // render 4 decimals
   },
   grid: { color: "rgba(0,0,0,0.06)" },
   border: { display: false }
 },
+
 
               x:{ ticks:{ color:"#6b7280", maxRotation:0, autoSkip:true, maxTicksLimit:8,
                           callback:(v,i)=>fmtDate(isoDates[i] ?? labels[i]) },
