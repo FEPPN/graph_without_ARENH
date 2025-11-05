@@ -7,34 +7,24 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    :root{
-      /* hauteur de graphe fluide : min 280px, max 520px */
-      --chart-h: clamp(280px, 58vh, 520px);
-    }
-    html, body { margin:0; }
+    html, body { margin:0; overflow:hidden; }
     body{
       background:#f9fafb; font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
       display:flex; justify-content:center;
-      overflow-x:hidden; /* évite tout scroll horizontal */
     }
     .chart-wrapper{
       background:#fff; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,.06);
-      padding:12px 16px 12px;
-      width:100%; max-width:940px; margin:8px auto;
+      padding:8px 16px 8px;               /* top/bottom mini -> pas de bandes */
+      width:100%; max-width:940px; margin:0 auto;
     }
-    h1{ margin:0 0 8px; text-align:center; font-size:22px; font-weight:600; color:#0b0f19; }
-    #myChart{ display:block; width:100%; height:var(--chart-h); }
-
-    /* Mobile : réduit le titre et les paddings */
-    @media (max-width: 480px){
-      .chart-wrapper{ padding:10px 12px; border-radius:14px; }
-      h1{ font-size:18px; margin-bottom:6px; }
-    }
+    h1{ margin:0 0 6px; text-align:center; font-size:22px; font-weight:600; color:#0b0f19; }
+     #myChart{ display:block; width:100%; height:auto; }
   </style>
 </head>
 <body>
   <div class="chart-wrapper" id="wrap">
     <h1>Prédiction du prix du kWh TTC au TRVE résidentiel en 2026</h1>
+    
     <canvas id="myChart" aria-label="Courbe Sans ARENH" role="img"></canvas>
   </div>
 
@@ -46,6 +36,14 @@
     const nf4 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
     let chart;
+    function sizeCanvasOnce(){
+      const wrap = document.getElementById('wrap');
+      const cvs  = document.getElementById('myChart');
+      const w = Math.floor(wrap.clientWidth);
+      const h = 480;                    // < 560px de l'iframe -> pas de scroll
+      cvs.width = w; cvs.height = h;    // fige la taille (pas de “danse”)
+      return cvs.getContext('2d');
+    }
 
     fetch(jsonUrl, { cache:"no-store" })
       .then(r => { if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
@@ -55,29 +53,25 @@
           const iso = pick(r,["Date","date","dateISO"]);
           const wo  = Number(pick(r,["withoutARENH","without_arenh","woARENH"]));
           if(!iso || Number.isNaN(wo)) return;
-          isoDates.push(String(iso));
-          labels.push(fmtDate(iso));
-          values.push(wo);
+          isoDates.push(String(iso)); labels.push(fmtDate(iso)); values.push(wo);
         });
 
         const yMinData = Math.min(...values), yMaxData = Math.max(...values);
-        const pad      = Math.max((yMaxData - yMinData) * 0.06, 0.0005);
-        const yMin = yMinData - pad;
-        const yMax = yMaxData + pad;
+        const pad  = Math.max((yMaxData - yMinData) * 0.06, 0.0005);
 
-        // === Empêcher les doublons de ticks (ex: "0,182") en figeant un pas multiple de 0.0001 ===
-        const range = yMax - yMin;
-        const approxTickCount = 6; // ~6 graduations lisibles
+        // === Pas de ticks aligné au 1e-4 pour éviter les doublons arrondis ===
+        const range = (yMaxData + pad) - (yMinData - pad);
+        const approxTickCount = 6;
         const rawStep = range / approxTickCount;
-        const stepTo4 = Math.max(0.0001, Math.round(rawStep / 0.0001) * 0.0001); // arrondi au 1e-4
+        const stepTo4 = Math.max(0.0001, Math.round(rawStep / 0.0001) * 0.0001);
 
-        // aligne min/max sur le pas choisi
         const alignDown = (v, step) => Math.floor(v / step) * step;
         const alignUp   = (v, step) => Math.ceil(v / step) * step;
-        const yMinAligned = alignDown(yMin, stepTo4);
-        const yMaxAligned = alignUp(yMax,   stepTo4);
 
-        const ctx = document.getElementById('myChart').getContext('2d');
+        const yMin = alignDown(yMinData - pad, stepTo4);
+        const yMax = alignUp  (yMaxData + pad, stepTo4);
+
+        const ctx = sizeCanvasOnce();
         if (chart) chart.destroy();
 
         chart = new Chart(ctx, {
@@ -92,6 +86,7 @@
               pointRadius: 0,
               tension: 0.28,
               fill: 'origin',
+              // Dégradé SCRIPTABLE **limité à la chartArea**
               backgroundColor: (c) => {
                 const { chart } = c;
                 const ca = chart.chartArea;
@@ -104,43 +99,33 @@
             }]
           },
           options: {
-            responsive: true,
-            maintainAspectRatio: false,   // ← clé pour le mobile : on respecte la hauteur CSS
-            animation: false,
-            layout:{ padding:{ top:0, right:0, bottom:0, left:0 } },
+            responsive:false, animation:false,
+            layout:{ padding:{ top:0, right:0, bottom:0, left:0 } }, // pas de marge ajoutée
             interaction:{ mode:'nearest', intersect:false },
             plugins:{
-              filler:{ propagate:false },
+              filler:{ propagate:false },         // ne déborde pas sous l'axe
               legend:{ display:false },
               tooltip:{
                 backgroundColor:"#fff", borderColor:"#e5e7eb", borderWidth:1,
                 titleColor:"#111827", bodyColor:"#4b5563",
                 titleFont:{ weight:'700' }, bodyFont:{ weight:'500' },
                 padding:10, cornerRadius:10,
-                callbacks:{
-                  label:(c)=> `${nf4.format(c.parsed.y)} € / kWh TTC`
-                }
+                callbacks:{ label:(c)=>`${nf4.format(c.parsed.y)} € / kWh TTC` }
               }
             },
             scales:{
               y:{
-                suggestedMin: yMinAligned,
-                suggestedMax: yMaxAligned,
-                beginAtZero:false,
-                ticks:{
-                  stepSize: stepTo4,              // impose un pas cohérent avec 4 décimales
-                  callback:v => `${nf4.format(Number(v))} €`
-                },
-                grid:{ color:'rgba(0,0,0,0.06)' },
-                border:{ display:false }
+                  min:yMin, max:yMax, beginAtZero:false,
+                  ticks:{
+                    color:"#6b7280",
+                    stepSize: stepTo4,
+                    callback:v=>`${nf4.format(Number(v))} €`
+                  },
+                  grid:{ color:'rgba(0,0,0,0.06)' }, border:{ display:false }
               },
-              x:{
-                ticks:{
-                  color:"#6b7280", maxRotation:0, autoSkip:true, maxTicksLimit:8,
-                  callback:(v,i)=>fmtDate(isoDates[i] ?? labels[i])
-                },
-                grid:{ display:false }, border:{ display:false }
-              }
+              x:{ ticks:{ color:"#6b7280", maxRotation:0, autoSkip:true, maxTicksLimit:8,
+                          callback:(v,i)=>fmtDate(isoDates[i] ?? labels[i]) },
+                  grid:{ display:false }, border:{ display:false } }
             }
           }
         });
