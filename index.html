@@ -150,5 +150,19 @@
           `<p style="margin-top:8px;color:#ef4444;text-align:center">Erreur de chargement des données.</p>`);
       });
   </script>
+  <script>
+  function sendHeight(){
+    const h = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight
+    );
+    // Remplace l'origine par ton domaine si tu veux restreindre la sécurité
+    parent.postMessage({ type: 'resize-iframe', height: h }, '*');
+  }
+  window.addEventListener('load', sendHeight);
+  window.addEventListener('resize', sendHeight);
+  // Si ton graph se charge async, renvoie la hauteur après le rendu aussi
+  setTimeout(sendHeight, 200);
+</script>
 </body>
 </html>
