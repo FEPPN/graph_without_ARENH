@@ -7,34 +7,51 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
+
   <style>
-    html, body { margin:0; overflow:hidden; }
-    body {
-      background:#f9fafb;
-      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      display:flex;
-      justify-content:center;
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #f9fafb;
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100%;
     }
+
     .chart-wrapper {
-      background:#fff;
-      border-radius:16px;
-      box-shadow:0 8px 24px rgba(0,0,0,.06);
-      padding:8px 16px;
-      width:100%;
-      max-width:940px;
-      margin:0 auto;
+      width: 100%;
+      max-width: 940px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+      padding: 12px 16px 8px;
+      margin: 16px;
+      box-sizing: border-box;
     }
+
     h1 {
-      margin:0 0 6px;
-      text-align:center;
-      font-size:22px;
-      font-weight:600;
-      color:#0b0f19;
+      margin: 0 0 10px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: 600;
+      color: #0b0f19;
     }
-    #myChart {
-      display:block;
-      width:100%;
-      height:auto;
+
+    /* 🎯 Responsive : le canvas s'adapte à la taille du conteneur */
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: auto !important;
+      aspect-ratio: 4/3; /* garde une belle hauteur */
+    }
+
+    /* 📱 Sur mobile : plus de hauteur pour les légendes */
+    @media (max-width: 600px) {
+      h1 { font-size: 18px; }
+      .chart-wrapper { padding: 8px 10px; }
+      canvas { aspect-ratio: 1/1; } /* carré sur mobile = lisible */
     }
   </style>
 </head>
